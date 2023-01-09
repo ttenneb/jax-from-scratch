@@ -1,6 +1,4 @@
 import os
-os.add_dll_directory(
-    "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.1/bin")
 
 # imports
 from mnist import get_mnist_dataset
@@ -15,6 +13,7 @@ class linear_layer:
     def __init__(self, in_size, out_size) -> None:
         self.w  = random.uniform(key, (out_size, in_size), dtype=jnp.float32, minval=-.1, maxval=.1)
         self.b = jnp.zeros(out_size)
+    
         
 def relu(x):
     return jnp.maximum(x, 0)
@@ -57,32 +56,36 @@ onehot_v = vmap(onehot)
 # derivative functions
 d_loss = grad(loss)
 
+def train(data_generator=training_generator, params=[l1, l2]):
+    learning_rate = .001
+    layer1, layer2 = params
+    print([[layer1.w, layer1.b], [layer2.w, layer2.b]])
+    for i, batch in enumerate(data_generator):
+        examples, labels = batch
+        labels = onehot_v(labels)
+        # forward pass
+        examples = examples*(1/255)
+        gradient = d_loss([[layer1.w, layer1.b], [layer2.w, layer2.b]], examples, labels)
+        
+        
+        d_l1, d_l2 = gradient
+        layer1.w -= learning_rate*d_l1[0]
+        layer1.b -= learning_rate*d_l1[1]
+        layer2.w -= learning_rate*d_l2[0]
+        layer2.b -= learning_rate*d_l2[1]
+        
+        if i % 5 == 0:
+            print('loss', loss([[layer1.w, layer1.b], [layer2.w, layer2.b]], examples, labels))
 
-learning_rate = .0005
-print([[l1.w, l1.b], [l2.w, l2.b]])
-for i, batch in enumerate(training_generator):
-    examples, labels = batch
-    labels = onehot_v(labels)
-    # forward pass
-    examples = examples*(1/255)
-    gradient = d_loss([[l1.w, l1.b], [l2.w, l2.b]], examples, labels)
-    
-    
-    d_l1, d_l2 = gradient
-    l1.w -= learning_rate*d_l1[0]
-    l1.b -= learning_rate*d_l1[1]
-    l2.w -= learning_rate*d_l2[0]
-    l2.b -= learning_rate*d_l2[1]
-    
-    if i % 5 == 0:
-        print('loss', loss([[l1.w, l1.b], [l2.w, l2.b]], examples, labels))
+def test(params=[l1, l2]):
+    total = 0
+    l1, l2 = params
+    for example in zip(test_images, test_labels):
+        image, label = example
+        image = image.reshape(-1, 784)
+        image = image*(1/255)
+        y = predict([[l1.w, l1.b], [l2.w, l2.b]], image)
+        if jnp.argmax(y) == jnp.argmax(label):
+            total += 1
+    print('accuracy', total/len(test_images))
 
-total = 0
-for example in zip(test_images, test_labels):
-    image, label = example
-    image = image.reshape(-1, 784)
-    image = image*(1/255)
-    y = predict([[l1.w, l1.b], [l2.w, l2.b]], image)
-    if jnp.argmax(y) == jnp.argmax(label):
-        total += 1
-print(total/len(test_images))
