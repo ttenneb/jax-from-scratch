@@ -11,11 +11,18 @@ import jax.nn as jnn
 
 key = random.PRNGKey(22)
 
+
+class convolution_layer:
+    def __init__(self, kernel_size, kernel_n):
+        self.w = random.uniform(key, (kernel_size, kernel_size, kernel_n), dtype=jnp.float32, minval=-.1,  maxval =.1)
+
 class linear_layer:
     def __init__(self, in_size, out_size) -> None:
-        self.w  = random.uniform(key, (out_size, in_size), dtype=jnp.float32, minval=-.1, maxval=.1)
+        self.w  = random.uniform(key, (out_size, in_size), dtype=jnp.float16, minval=-.1, maxval=.1)
         self.b = jnp.zeros(out_size)
-        
+    def data(self):
+        return [self.w, self.b]
+            
 def relu(x):
     return jnp.maximum(x, 0)
 
@@ -30,17 +37,18 @@ def onehot(x):
     y = y.at[x].set(1)
     return y
     
-def predict(params, x):
-    
-    x = jnp.matmul(x, params[0][0].T) + params[0][1]
-    x_relu = relu_layer(x)
-    x1 = jnp.matmul(x_relu, params[1][0].T) + params[1][1]
-    x_softmax = jnn.softmax(x1)
+def linear_predict(params, x):
+    for layer in params[:-1]:
+        x = jnp.matmul(x, layer[0].T) + layer[1]
+        x = relu_layer(x)
+
+    x = jnp.matmul(x, params[-1][0].T) + params[-1][1]
+    x_softmax = jnn.softmax(x)
     return x_softmax
 
 # cross entropy loss
 def loss(params, x, y):
-    y_hat = predict(params, x)
+    y_hat = linear_predict(params, x)
     return jnp.sum(y*(-jnp.log(y_hat)))
 
 
@@ -59,13 +67,13 @@ d_loss = grad(loss)
 
 
 learning_rate = .0005
-print([[l1.w, l1.b], [l2.w, l2.b]])
+
 for i, batch in enumerate(training_generator):
     examples, labels = batch
     labels = onehot_v(labels)
     # forward pass
     examples = examples*(1/255)
-    gradient = d_loss([[l1.w, l1.b], [l2.w, l2.b]], examples, labels)
+    gradient = d_loss([l1.data(), l2.data()], examples, labels)
     
     
     d_l1, d_l2 = gradient
@@ -75,14 +83,14 @@ for i, batch in enumerate(training_generator):
     l2.b -= learning_rate*d_l2[1]
     
     if i % 5 == 0:
-        print('loss', loss([[l1.w, l1.b], [l2.w, l2.b]], examples, labels))
+        print('loss', loss([l1.data(), l2.data()], examples, labels))
 
 total = 0
 for example in zip(test_images, test_labels):
     image, label = example
     image = image.reshape(-1, 784)
     image = image*(1/255)
-    y = predict([[l1.w, l1.b], [l2.w, l2.b]], image)
+    y = linear_predict([l1.data(), l2.data()], image)
     if jnp.argmax(y) == jnp.argmax(label):
         total += 1
 print(total/len(test_images))
