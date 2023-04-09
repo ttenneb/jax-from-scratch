@@ -4,9 +4,11 @@ os.add_dll_directory(
 
 # imports
 from mnist import get_mnist_dataset
-from jax import random, vmap, grad
+from jax import random, vmap, grad, lax
 import jax.numpy as jnp
+import jax.lax as jlax
 import jax.nn as jnn
+import jax.scipy as jsp
 
 
 key = random.PRNGKey(22)
@@ -46,10 +48,31 @@ def linear_predict(params, x):
     x_softmax = jnn.softmax(x)
     return x_softmax
 
+
+# Perform 
+def convolution_2d(input, kernel):
+    return jsp.signal.convole(input, kernel)
+
+
 # cross entropy loss
 def loss(params, x, y):
     y_hat = linear_predict(params, x)
     return jnp.sum(y*(-jnp.log(y_hat)))
+
+
+
+image = jnp.array([[1, 2, 3, 4],
+                   [5, 6, 7, 8],
+                   [9, 10, 11, 12],
+                   [13, 14, 15, 16]], dtype=float)
+
+kernel = jnp.array([[1, 2],
+                    [3, 4]], dtype=float)
+
+stride = 1
+
+conv_result = convolution_2d(image, kernel, stride)
+print(conv_result)
 
 
 train_images, train_labels, test_images, test_labels, training_generator = get_mnist_dataset()
