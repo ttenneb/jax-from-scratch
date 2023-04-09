@@ -1,6 +1,4 @@
 import os
-os.add_dll_directory(
-    "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.1/bin")
 
 # imports
 from mnist import get_mnist_dataset
@@ -88,6 +86,26 @@ onehot_v = vmap(onehot)
 # derivative functions
 d_loss = grad(loss)
 
+def train(data_generator=training_generator, params=[l1, l2]):
+    learning_rate = .001
+    layer1, layer2 = params
+    print([[layer1.w, layer1.b], [layer2.w, layer2.b]])
+    for i, batch in enumerate(data_generator):
+        examples, labels = batch
+        labels = onehot_v(labels)
+        # forward pass
+        examples = examples*(1/255)
+        gradient = d_loss([[layer1.w, layer1.b], [layer2.w, layer2.b]], examples, labels)
+        
+        
+        d_l1, d_l2 = gradient
+        layer1.w -= learning_rate*d_l1[0]
+        layer1.b -= learning_rate*d_l1[1]
+        layer2.w -= learning_rate*d_l2[0]
+        layer2.b -= learning_rate*d_l2[1]
+        
+        if i % 5 == 0:
+            print('loss', loss([[layer1.w, layer1.b], [layer2.w, layer2.b]], examples, labels))
 
 learning_rate = .0005
 
